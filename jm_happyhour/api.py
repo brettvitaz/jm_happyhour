@@ -1,8 +1,30 @@
 import bottle
 import datetime
 from dateutil import parser
+import requests
 
-from jm_happyhour import get_daily_schedule
+URL = 'http://gd2.mlb.com/components/game/mlb/year_{:d}/month_{:02d}/day_{:02d}/master_scoreboard.json'
+
+
+def get_home_game_for_date(year, month, day):
+    try:
+        info = requests.get(URL.format(year, month, day))
+
+        result = False
+
+        if 'data' in info.json():
+            if 'games' in info.json()['data']:
+                games = info.json()['data']['games']['game']
+                if isinstance(games, dict):
+                    games = [games]
+                for game in games:
+                    if game['location'].startswith('Seattle'):
+                        result = True
+                        break
+
+        return result
+    except Exception as e:
+        print('Something bad happened.', e)
 
 
 @bottle.post('/happyhour')
@@ -35,7 +57,7 @@ def get_today():
 
 @bottle.get('/api/happyhour/<year>/<month>/<day>')
 def get_data(year=None, month=None, day=None):
-    result = get_daily_schedule.get_master_scoreboard(int(year), int(month), int(day))
+    result = get_home_game_for_date(int(year), int(month), int(day))
     if result:
         return 'On {}/{}/{} - Stay home. :('.format(month, day, year)
     return 'On {}/{}/{} - Let\'s get drunk! :D'.format(month, day, year)
